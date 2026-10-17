@@ -52,7 +52,7 @@ h1{font-size:34px;line-height:41px;font-weight:700;letter-spacing:.01em;padding:
 .row:active{opacity:.55}
 .art,.pic{flex:none;background:var(--bg3);object-fit:cover;opacity:0;transition:opacity .35s}
 .art{width:50px;height:50px;border-radius:6px}
-.ld,.art.sk{opacity:1}
+.ld,.art.sk,.pic.sk{opacity:1}
 .rank{flex:none;width:20px;text-align:center;font-size:15px;font-weight:600;color:var(--fg2)}
 .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .t,.s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -81,6 +81,23 @@ h1{font-size:34px;line-height:41px;font-weight:700;letter-spacing:.01em;padding:
 .tile .t{font-size:14px;line-height:18px;margin-top:7px}
 .tile .s{font-size:13px;line-height:17px}
 .tile.now .t{color:var(--accent)}
+
+/* top picks: big cards */
+.picks{display:flex;gap:12px;overflow-x:auto;padding:0 16px;scroll-snap-type:x mandatory;scroll-padding:0 16px;scrollbar-width:none}
+.picks::-webkit-scrollbar{display:none}
+.pick{flex:none;width:min(72vw,300px);display:flex;flex-direction:column;gap:7px;scroll-snap-align:start}
+.pick:active{opacity:.7}
+.lbl{display:block;font-size:13px;line-height:17px;font-weight:600;color:var(--fg2);padding-left:2px}
+.lbl.sk{width:55%;height:13px}
+.card{position:relative;display:block;border-radius:14px;overflow:hidden;background:var(--bg2);box-shadow:0 8px 26px rgba(0,0,0,.4)}
+.cover{display:block;width:100%;aspect-ratio:1;object-fit:cover;opacity:0;transition:opacity .35s}
+.foot{position:relative;display:block;padding:12px 14px 14px;overflow:hidden}
+.fbg{position:absolute;inset:-30px;background:center/cover;filter:blur(26px) saturate(1.7) brightness(.6);transform:scale(1.3)}
+.frow{position:relative;display:flex;align-items:center;gap:12px}
+.ftx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ftx .t{font-size:17px;line-height:22px;font-weight:700;color:#fff}
+.ftx .s{color:rgba(255,255,255,.72)}
+.fplay{flex:none;width:36px;height:36px;padding:10px 9px 10px 11px;border-radius:50%;background:rgba(255,255,255,.2);color:#fff}
 
 /* loading shimmer */
 .sk{background:linear-gradient(90deg,var(--bg2) 25%,var(--bg3) 50%,var(--bg2) 75%);background-size:200% 100%;animation:sk 1.3s linear infinite;border-radius:5px}
@@ -177,9 +194,13 @@ h1{font-size:34px;line-height:41px;font-weight:700;letter-spacing:.01em;padding:
 <section class="view" id="v-home" hidden>
   <header class="nav"><span>Home</span></header>
   <h1>Home</h1>
+  <div class="sec"><h2>Top Picks</h2><div class="picks" id="picks"></div></div>
   <div class="sec" id="home-recent" hidden><h2>Recently Played</h2><div class="shelf" id="recent-shelf"></div></div>
+  <div class="sec" id="new-sec"><h2>New Releases</h2><div class="shelf" id="new-shelf"></div></div>
   <div class="sec"><h2>Top Songs: India</h2><div class="g4" id="top-in"></div></div>
+  <div class="sec"><h2>Top Albums: India</h2><div class="shelf" id="alb-in"></div></div>
   <div class="sec"><h2>Top Songs: UK</h2><div class="g4" id="top-gb"></div></div>
+  <div class="sec"><h2>Top Albums: UK</h2><div class="shelf" id="alb-gb"></div></div>
 </section>
 
 <section class="view" id="v-library" hidden>
@@ -489,14 +510,56 @@ function upNext(){
   el._up=true;
 }
 
-/* home */
-async function chart(cc,name){
-  const el=$('#top-'+cc);
-  el.innerHTML=skel(8);
-  try{
-    const r=await fetch(`https://itunes.apple.com/${cc}/rss/topsongs/limit=40/json`);
-    fill(el,((await r.json()).feed.entry||[]).map(fromRss),`Top Songs: ${name}`,{rank:1});
-  }catch{el.innerHTML='<div class="note">Couldn\'t load this chart. Check your connection.</div>'}
+/* home: Apple's free charts */
+const NOTE='<div class="note">Couldn\'t load this. Check your connection.</div>';
+const fromAlb=(e,cc)=>({id:e.id.attributes['im:id'],title:e['im:name'].label,artist:e['im:artist'].label,art:(e['im:image']||[]).at(-1)?.label||'',date:e['im:releaseDate']?.label||'',cc});
+async function feed(cc,kind,n){
+  const r=await fetch(`https://itunes.apple.com/${cc}/rss/${kind}/limit=${n}/json`);
+  const e=(await r.json()).feed.entry||[];
+  return Array.isArray(e)?e:[e];
+}
+const tileSk=n=>Array.from({length:n},()=>'<div class="tile"><span class="pic sk"></span><span class="sk skl" style="margin-top:8px"></span><span class="sk skl"></span></div>').join('');
+const pickSk=n=>Array.from({length:n},()=>'<div class="pick"><span class="lbl sk"></span><span class="card sk" style="aspect-ratio:1/1.27"></span></div>').join('');
+function albumTiles(el,list){
+  el.innerHTML=list.map((a,i)=>`<button class="tile" data-a="${i}">${art(a,320,'pic')}<span class="t">${esc(a.title)}</span><span class="s">${esc(a.artist)}</span></button>`).join('');
+  el._albums=list;
+}
+function picks(el,list){
+  el.innerHTML=list.map((p,i)=>`<button class="pick" data-a="${i}"><span class="lbl">${esc(p.label)}</span><span class="card">${art(p,600,'cover')}<span class="foot"><span class="fbg" style="background-image:url('${esc(pic(p.art,120))}')"></span><span class="frow"><span class="ftx"><span class="t">${esc(p.title)}</span><span class="s">${esc(p.artist)}</span></span><span class="fplay">${IC.play}</span></span></span></span></button>`).join('');
+  el._albums=list;
+}
+async function home(){
+  for(const id of ['top-in','top-gb'])$('#'+id).innerHTML=skel(8);
+  for(const id of ['new-shelf','alb-in','alb-gb'])$('#'+id).innerHTML=tileSk(4);
+  $('#picks').innerHTML=pickSk(3);
+  for(const [cc,name] of [['in','India'],['gb','UK']])
+    feed(cc,'topsongs',40).then(l=>fill($('#top-'+cc),l.map(fromRss),`Top Songs: ${name}`,{rank:1}),()=>{$('#top-'+cc).innerHTML=NOTE});
+  const [ai,ag]=(await Promise.allSettled([feed('in','topalbums',50),feed('gb','topalbums',50)]))
+    .map((x,k)=>x.status==='fulfilled'?x.value.map(e=>fromAlb(e,k?'gb':'in')):null);
+  for(const [cc,l] of [['in',ai],['gb',ag]])if(l)albumTiles($('#alb-'+cc),l);else $('#alb-'+cc).innerHTML=NOTE;
+  // Top Picks: the top three albums in each country, taking turns
+  const pk=[];
+  for(let k=0;k<3;k++)for(const [l,where] of [[ai,'India'],[ag,'the UK']])if(l&&l[k])pk.push({...l[k],label:`No. ${k+1} Album in ${where}`});
+  if(pk.length)picks($('#picks'),pk);else $('#picks').innerHTML=NOTE;
+  // New Releases: charting albums out in the last 30 days, newest first
+  const cut=Date.now()-30*864e5,seen=new Set();
+  const nw=[...(ai||[]),...(ag||[])].filter(a=>Date.parse(a.date)>=cut&&!seen.has(a.id)&&seen.add(a.id)).sort((x,y)=>Date.parse(y.date)-Date.parse(x.date));
+  $('#new-sec').hidden=!nw.length;
+  albumTiles($('#new-shelf'),nw);
+}
+const albums=new Map();
+async function playAlbum(a){
+  let list=albums.get(a.id);
+  if(!list){
+    try{
+      const r=await fetch(`https://itunes.apple.com/lookup?id=${encodeURIComponent(a.id)}&entity=song&country=${a.cc}`);
+      list=((await r.json()).results||[]).filter(x=>x.wrapperType==='track'&&x.kind==='song')
+        .sort((x,y)=>(x.discNumber-y.discNumber)||(x.trackNumber-y.trackNumber)).map(fromIt);
+      albums.set(a.id,list);
+    }catch{toast("Couldn't open this album. Check your connection.");return}
+  }
+  if(!list.length){toast('This album has no songs to play.');return}
+  playList(list,0,a.title);
 }
 function recentShelf(){
   const list=S.recent.slice(0,20),el=$('#recent-shelf');
@@ -569,6 +632,13 @@ document.addEventListener('click',e=>{
   const rs=e.target.closest('.rs');
   if(rs){q.value=rs.dataset.q;$('#q-x').hidden=false;search(rs.dataset.q);addSearch(rs.dataset.q);return}
   if(e.target.closest('#s-clear')){S.searches=[];save();searchHome();return}
+  const al=e.target.closest('[data-a]');
+  if(al){
+    let box=al.parentElement;
+    while(box&&!box._albums)box=box.parentElement;
+    if(box)playAlbum(box._albums[+al.dataset.a]);
+    return;
+  }
   const r=e.target.closest('.row[data-i],.tile');
   if(!r) return;
   let box=r.parentElement;
@@ -627,7 +697,7 @@ function selftest(){
 for(const el of $$('[data-ic]'))el.innerHTML=IC[el.dataset.ic];
 sizeSlot();place(true);
 showTab((()=>{try{const t=localStorage.getItem('music.tab');return TABS.includes(t)?t:'home'}catch{return 'home'}})());
-chart('in','India');chart('gb','UK');
+home();
 if(location.hash==='#selftest')selftest();
 </script>
 <script src="https://www.youtube.com/iframe_api" async></script>
