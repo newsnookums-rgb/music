@@ -52,7 +52,7 @@ h1{font-size:34px;line-height:41px;font-weight:700;letter-spacing:.01em;padding:
 .row:active{opacity:.55}
 .art,.pic{flex:none;background:var(--bg3);object-fit:cover;opacity:0;transition:opacity .35s}
 .art{width:50px;height:50px;border-radius:6px}
-.ld,.art.sk,.pic.sk{opacity:1}
+img.ld,.ld,.art.sk,.pic.sk{opacity:1}
 .rank{flex:none;width:20px;text-align:center;font-size:15px;font-weight:600;color:var(--fg2)}
 .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .t,.s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -75,6 +75,8 @@ h1{font-size:34px;line-height:41px;font-weight:700;letter-spacing:.01em;padding:
 
 /* square tiles */
 .shelf{display:flex;gap:12px;overflow-x:auto;padding:0 16px;scroll-snap-type:x mandatory;scroll-padding:0 16px;scrollbar-width:none}
+/* Safari gives buttons align-items:flex-start, which lets long names widen the box */
+.tile,.pick,.dtext{align-items:stretch}
 .tile{flex:none;width:156px;min-width:0;display:flex;flex-direction:column;scroll-snap-align:start}
 .tile:active{opacity:.55}
 .pic{width:156px;height:156px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.3)}
